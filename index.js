@@ -105,7 +105,7 @@ app.post("/search", async (req, res) => {
   res.render("search.ejs");
 });
 
-Sends added book to list and redirects to homepage
+// Sends added book to list and redirects to homepage
 app.post("/send", async (req, res) => {
   console.log(req.body);
 
