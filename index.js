@@ -18,85 +18,123 @@ const db = new pg.Client({
 });
 db.connect();
 
-let currentBook=2;
+let currentBook = 2;
+let index = 0;
+let text = "";
+let items = [];
+let quotes = [];
 
-let items=[];
-let quotes=[];
-let testtt=0;
-let editId=0;
-
+// Selects a book
 async function getCurrentList() {
-    const result = await db.query("SELECT * FROM books order by id asc");
-    items = result.rows;
-    return items.find((item) => item.id == currentBook);
-  }
+  const result = await db.query("SELECT * FROM books order by id asc");
+  items = result.rows;
+  return items.find((item) => item.id == currentBook);
+}
+// Selects all notes foe selected book
+async function getCurrentNotes() {
+  const result = await db.query("SELECT * FROM booknotes where book_id=($1)", [
+    currentBook,
+  ]);
+  quotes = result.rows;
+}
 
- async function getCurrentNotes() {
-    const result= await db.query("SELECT * FROM booknotes where book_id=($1)", [currentBook]);
-    quotes= result.rows;
-    
- } 
+  // Adds a new note
+async function updateCurrentNote() {
+  const result = await db.query(
+    "UPDATE booknotes SET quote = quote || ($1) WHERE id = ($2) ",
+    [text, index]
+  );
+}
 
- async function updateCurrentNote (){
-    const result=await db.query("")
- }
-
+// Deletes a note
+async function deleteCurrentNote() {
+  const result = await db.query("delete from booknotes where id=($1)", [index]);
+}
 
 // homepages- presents all the notes stored
-app.get("/", async  (req, res) => {
-  const input= await getCurrentList();
-  const input2=await getCurrentNotes();
-  res.render("index.ejs", {items:items, 
-    currentBook:currentBook, 
-    quotes:quotes,
-    id:input, 
-    test:testtt,
-    editId:editId
-});
-//   console.log(items);
-//   console.log(quotes);
-//   console.log(input);
+app.get("/", async (req, res) => {
+  const input = await getCurrentList();
+  const input2 = await getCurrentNotes();
+  res.render("index.ejs", {
+    items: items,
+    currentBook: currentBook,
+    quotes: quotes,
+    id: input,
+  });
+
 });
 
 // Displays selected book's quotes
 app.post("/item", async (req, res) => {
-    let currentId= req.body.item;
-    currentBook=currentId;
-   res.redirect ("/");
-
-  
+  let currentId = req.body.item;
+  currentBook = currentId;
+  res.redirect("/");
 });
 
-// choose to edit or delete selected quote
+// edit or delete selected quote
 app.post("/menu", async (req, res) => {
-    testtt=req.body.selectpicker;
-    editId= req.body.id;
-    
-    // console.log(testtt);
-    // console.log(editId);
-    console.log(req.body);
-    
-    res.redirect ("/");
-    
-
+  let check = req.body.menu;
+  if (check == "edit") {
+    index = req.body.quote_id;
+    text = req.body.text;
+    const result = await updateCurrentNote();
+  } else if (check == "delete") {
+    index = req.body.quote_id;
+    const result = await deleteCurrentNote();
+  }
+  res.redirect("/");
+  console.log(req.body);
 });
 
-// Edit a selected quote
-app.post("/update", async (req, res) => {
-    let testtt2=req.body;
-    const id = parseInt(req.body.index);
-    
-    console.log(id);
-    console.log(req.body);
-   
-    
+// adds new note to selected book
+app.post("/add", async (req, res) => {
+  console.log(req.body);
+  let newNote = req.body.text;
+  let newNotePage = req.body.page;
+  let newNoteId = req.body.book_id;
+  const result = await db.query(
+    "INSERT INTO booknotes (quote,page, book_id) VALUES ($1,$2, $3) RETURNING *;",
+    [newNote, newNotePage, newNoteId]
+  );
 
+  res.redirect("/");
 });
 
-// Delete a selected quote
-app.post("/delete", async (req, res) => {
+// Search a new book to add to list
+app.post("/search", async (req, res) => {
+  res.render("search.ejs");
+});
 
+Sends added book to list and redirects to homepage
+app.post("/send", async (req, res) => {
+  console.log(req.body);
 
+  const isbn = req.body.isbn;
+
+  // Check if the ISBN already exists
+  const checkQuery = await db.query("SELECT * FROM books WHERE isbn = $1", [
+    isbn,
+  ]); // Efficiently checks for existence
+  const checkResult = checkQuery.rows;
+
+  if (checkResult.length > 0) {
+    // ISBN already exists
+    return res.send(
+      "<script>alert('Isbn is in use, try again!'); window.location='/'</script>"
+    );
+  } else {
+    //new isbn
+    let title = req.body.title;
+    let author = req.body.author;
+    let isbn = req.body.isbn;
+    const result = await db.query(
+      "INSERT INTO books (title, author, isbn) VALUES ($1, $2, $3)",
+      [title, author, isbn]
+    );
+    return res.send(
+      "<script>alert('Your book is added!') ; window.location='/'</script>"
+    );
+  }
 });
 
 app.listen(port, () => {
