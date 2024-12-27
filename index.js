@@ -12,13 +12,22 @@ app.use(express.static("public"));
 dotenv.config();
 const { Pool } = pg; 
 
+const PORT = process.env.port || 3001;
+
+const connectionString = process.env.DATABASE_URL;
+
+
 const pool = new Pool({
   user: process.env.user,
   host: process.env.host,
   database: process.env.database,
   password: process.env.password,
   port: process.env.port,
+  connectionString: connectionString,
+
 });
+
+
 
 console.log(process.env.user);
 
