@@ -2,21 +2,25 @@ import express from "express";
 import bodyParser from "body-parser";
 import pg from "pg";
 import ejs from "ejs";
+import dotenv from "dotenv";
 
 const app = express();
 const port = 3000;
 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
+dotenv.config();
+const { Pool } = pg; 
 
-const db = new pg.Client({
-  user: "postgres",
-  host: "localhost",
-  database: "Books",
-  password: "Moomin2612",
-  port: 5432,
+const pool = new Pool({
+  user: process.env.user,
+  host: process.env.host,
+  database: process.env.database,
+  password: process.env.password,
+  port: process.env.port,
 });
-db.connect();
+
+console.log(process.env.user);
 
 let currentBook = 2;
 let index = 0;
@@ -26,13 +30,13 @@ let quotes = [];
 
 // Selects a book
 async function getCurrentList() {
-  const result = await db.query("SELECT * FROM books order by id asc");
+  const result = await pool.query("SELECT * FROM books order by id asc");
   items = result.rows;
   return items.find((item) => item.id == currentBook);
 }
 // Selects all notes foe selected book
 async function getCurrentNotes() {
-  const result = await db.query("SELECT * FROM booknotes where book_id=($1)", [
+  const result = await pool.query("SELECT * FROM booknotes where book_id=($1)", [
     currentBook,
   ]);
   quotes = result.rows;
@@ -40,7 +44,7 @@ async function getCurrentNotes() {
 
   // Adds a new note
 async function updateCurrentNote() {
-  const result = await db.query(
+  const result = await pool.query(
     "UPDATE booknotes SET quote = quote || ($1) WHERE id = ($2) ",
     [text, index]
   );
@@ -48,7 +52,7 @@ async function updateCurrentNote() {
 
 // Deletes a note
 async function deleteCurrentNote() {
-  const result = await db.query("delete from booknotes where id=($1)", [index]);
+  const result = await pool.query("delete from booknotes where id=($1)", [index]);
 }
 
 // homepages- presents all the notes stored
@@ -92,7 +96,7 @@ app.post("/add", async (req, res) => {
   let newNote = req.body.text;
   let newNotePage = req.body.page;
   let newNoteId = req.body.book_id;
-  const result = await db.query(
+  const result = await pool.query(
     "INSERT INTO booknotes (quote,page, book_id) VALUES ($1,$2, $3) RETURNING *;",
     [newNote, newNotePage, newNoteId]
   );
@@ -112,7 +116,7 @@ app.post("/send", async (req, res) => {
   const isbn = req.body.isbn;
 
   // Check if the ISBN already exists
-  const checkQuery = await db.query("SELECT * FROM books WHERE isbn = $1", [
+  const checkQuery = await pool.query("SELECT * FROM books WHERE isbn = $1", [
     isbn,
   ]); // Efficiently checks for existence
   const checkResult = checkQuery.rows;
@@ -127,7 +131,7 @@ app.post("/send", async (req, res) => {
     let title = req.body.title;
     let author = req.body.author;
     let isbn = req.body.isbn;
-    const result = await db.query(
+    const result = await pool.query(
       "INSERT INTO books (title, author, isbn) VALUES ($1, $2, $3)",
       [title, author, isbn]
     );
